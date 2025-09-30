@@ -25,6 +25,7 @@ function preload() {
 }
 
 function setup() {
+  console.log("setup started"); // ←動いてるかチェック
   createCanvas(640, 480);
   video = createCapture(VIDEO);
   video.size(width, height);
