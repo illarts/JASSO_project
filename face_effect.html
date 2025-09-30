@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>顔エフェクトサンプル</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/addons/p5.dom.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ml5@0.12.2/dist/ml5.min.js"></script>
+</head>
+<body>
+<script>
+  let video;
+let faceapi;
+let detections = [];
+let masks = [];
+let selectedMask = 0; // 今表示したいマスクのインデックス
+
+function preload() {
+  // マスク画像と目の位置をセットで管理
+  masks = [
+    { img: loadImage('japanese_mask.png'), eyeX: 120, eyeY: -10 },
+    { img: loadImage('The Laughing Man.gif'), eyeX: 200, eyeY: 0 },
+    // { img: loadImage('test_a.png'), eyeX: 200, eyeY: 0 }
+  ];
+}
+
+function setup() {
+  createCanvas(640, 480);
+  video = createCapture(VIDEO);
+  video.size(width, height);
+  video.hide();
+
+  const faceOptions = { withLandmarks: true, withExpressions: false, withDescriptors: false };
+  faceapi = ml5.faceApi(video, faceOptions, faceReady);
+}
+
+function faceReady() {
+  faceapi.detect(gotFaces);
+}
+
+function gotFaces(error, result) {
+  if (result) detections = result;
+  faceapi.detect(gotFaces);
+}
+
+function draw() {
+  background(0);
+
+  // --- カメラ映像だけ左右反転 ---
+  push();
+  translate(width, 0);
+  scale(-1, 1);
+  image(video, 0, 0, width, height);
+  pop();
+
+  // --- 複数顔にマスクを描画 ---
+  for (let i = 0; i < detections.length; i++) {
+    let face = detections[i];
+    let nose = face.parts.nose;
+    let leftEye = face.parts.leftEye;
+    let rightEye = face.parts.rightEye;
+
+    // 顔の目の中心と距離
+    let faceEyeX = (leftEye[0]._x + rightEye[3]._x) / 2;
+    let faceEyeY = (leftEye[0]._y + rightEye[3]._y) / 2;
+    let eyeDist = dist(leftEye[0]._x, leftEye[0]._y, rightEye[3]._x, rightEye[3]._y);
+
+    // 選択中のマスク
+    let mask = masks[selectedMask];
+
+    // マスクサイズ
+    let maskW = eyeDist * 3;
+    let maskH = maskW * (mask.img.height / mask.img.width);
+
+    // 鼻の位置に合わせた描画座標（目位置補正＆左右反転補正）
+    let centerX = width - faceEyeX + (faceEyeX - (faceEyeX - mask.eyeX * (maskW / mask.img.width)));
+    let centerY = faceEyeY;
+
+    // 顔の傾き
+    let angle = atan2(rightEye[3]._y - leftEye[0]._y, rightEye[3]._x - leftEye[0]._x);
+
+    // マスク描画
+    push();
+    translate(width - faceEyeX, faceEyeY + mask.eyeY); // 左右反転補正
+    rotate(-angle);
+    imageMode(CENTER);
+    image(mask.img, 0, 0, maskW, maskH);
+    pop();
+  }
+}
+
+</script>
+</body>
+</html>
